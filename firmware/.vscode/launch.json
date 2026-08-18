@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug GRAVITAS",
+      "cwd": "${workspaceFolder}",
+      "executable": "${workspaceFolder}/build/Debug/GRAVITAS.elf",
+      "request": "launch",
+      "type": "cortex-debug",
+
+      "gdbPath": "/usr/bin/gdb-multiarch",
+
+      "servertype": "stlink",
+
+      "device": "STM32H743VITx",
+
+      "interface": "swd",
+
+      "runToEntryPoint": "main"
+    }
+  ]
+}
