@@ -66,7 +66,7 @@ static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_SPI3_Init(void);
-static void MX_SDMMC2_SD_Init(void);
+// static void MX_SDMMC2_SD_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 
@@ -120,20 +120,28 @@ int main(void)
   /* USER CODE BEGIN 2 */
   PWM_Init();
   GPIO_Init();
-  IMU_Comms_Init();
+  IMU_Init();
   /* USER CODE END 2 */
 
-  char msg[32];
-
+  char msg[128];
+  float ax, ay, az;
+  float gx, gy, gz;
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
-    HAL_Delay(400);
-    __IMU_RESP rsp = IMU_GetWhoAmI();
-    sprintf(msg, "RX0=%02X RX1=%02X\r\n", rsp.rx0, rsp.rx1);
+
+    IMU_ReadAccel(&ax, &ay, &az);
+    IMU_ReadGyro(&gx, &gy, &gz);
+
+    sprintf(msg,
+        "AX=%.04fg AY=%.04fg AZ=%.04fg\t GX=%.04fdeg/s GY=%.04fdeg/s GZ=%.04fdeg/s\r\n",
+        ax, ay, az, gx, gy, gz);
+
     CDC_Transmit_FS((uint8_t *)msg, strlen(msg));
+
+    HAL_Delay(500);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
