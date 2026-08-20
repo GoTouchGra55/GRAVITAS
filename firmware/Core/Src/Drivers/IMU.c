@@ -1,4 +1,5 @@
 #include "IMU.h"
+#include "Comms.h"
 #include "main.h"
 #include "stdio.h"
 #include "stm32h743xx.h"
@@ -20,9 +21,9 @@ void IMU_Init(void){
   GPIOA->MODER |=  (GPIO_MODER_MODE5_1 | GPIO_MODER_MODE6_1 | GPIO_MODER_MODE7_1);
 
   GPIOA->AFR[0] &= ~(GPIO_AFRL_AFSEL5 | GPIO_AFRL_AFSEL6 | GPIO_AFRL_AFSEL7);
-  GPIOA->AFR[0] |=  (5U << GPIO_AFRL_AFSEL5_Pos) |
-                     (5U << GPIO_AFRL_AFSEL6_Pos) |
-                     (5U << GPIO_AFRL_AFSEL7_Pos);
+  GPIOA->AFR[0] |=  (0x5U << GPIO_AFRL_AFSEL5_Pos) |
+                     (0x5U << GPIO_AFRL_AFSEL6_Pos) |
+                     (0x5U << GPIO_AFRL_AFSEL7_Pos);
 
   GPIOA->OTYPER  &= ~(GPIO_OTYPER_OT5 | GPIO_OTYPER_OT6 | GPIO_OTYPER_OT7);
   GPIOA->PUPDR   &= ~(GPIO_PUPDR_PUPD5 | GPIO_PUPDR_PUPD6 | GPIO_PUPDR_PUPD7);
@@ -34,19 +35,18 @@ void IMU_Init(void){
   GPIOA->OTYPER &= ~GPIO_OTYPER_OT4;  // push-pull
   GPIOA->PUPDR  &= ~GPIO_PUPDR_PUPD4;
   GPIOA->OSPEEDR |= GPIO_OSPEEDR_OSPEED4;
-  GPIOA->BSRR = GPIO_BSRR_BS4;  // start deselected
+  IMU_CS_High(); // Start deselected
 
-  IMU_Comms_Init();
+  Comms_Init(IMU);
 
   // Low Noise mode for gyroscope and accelerometer
   IMU_WriteReg(0x10, 0x0F);
-  IMU_WriteReg(0x1B, 0x16);
-  IMU_WriteReg(0x1C, 0x36);
+  IMU_WriteReg(0x1B, 0x16); // +/-16g @ 800Hz for accel
+  IMU_WriteReg(0x1C, 0x36); // +/-500dps @ 800Hz for gyro
 }
 
 __IMU_RESP IMU_GetWhoAmI(void){
   __IMU_RESP response;
-  HAL_Delay(100);
   IMU_CS_Low();
   response.rx0 = IMU_SPI1_Transfer(0xF2);
   response.rx1 = IMU_SPI1_Transfer(0x00);
@@ -54,49 +54,20 @@ __IMU_RESP IMU_GetWhoAmI(void){
   return response;
 }
 
-void IMU_Comms_Init(void)
-{
-  // Disable SPI before configuration
-  SPI1->CR1 &= ~SPI_CR1_SPE;
-  // 8-bit data size
-  SPI1->CFG1 &= ~SPI_CFG1_DSIZE;
-  SPI1->CFG1 |= (7U << SPI_CFG1_DSIZE_Pos);
-  // FIFO threshold = 1 data frame
-  SPI1->CFG1 &= ~SPI_CFG1_FTHLV;
-  // Slow clock
-  SPI1->CFG1 &= ~SPI_CFG1_MBR;
-  SPI1->CFG1 |= (3U << SPI_CFG1_MBR_Pos);
-  // Master
-  SPI1->CFG2 |= SPI_CFG2_MASTER;
-  // Full duplex
-  SPI1->CFG2 &= ~SPI_CFG2_COMM;
-  // Mode 0
-  SPI1->CFG2 &= ~SPI_CFG2_CPOL;
-  SPI1->CFG2 &= ~SPI_CFG2_CPHA;
-  // Software NSS management
-  SPI1->CFG2 |= SPI_CFG2_SSM;
-  SPI1->CR1  |= SPI_CR1_SSI;   // prevents MODF
-  // Enable
-  SPI1->CR1 |= SPI_CR1_SPE;
-  // Start transfer
-  SPI1->CR1 |= SPI_CR1_CSTART;
-}
-
 uint8_t IMU_SPI1_Transfer(uint8_t data){
-  while (!(SPI1->SR & SPI_SR_TXP));
+  while (!(SPI1->SR & SPI_SR_TXP)); // Wait for TXP to be available for TX ops
   *(__IO uint8_t *)&SPI1->TXDR = data;
-  while (!(SPI1->SR & SPI_SR_RXP));
+  while (!(SPI1->SR & SPI_SR_RXP)); // Wait for RXP to be available for RX ops
   return *(__IO uint8_t *)&SPI1->RXDR;
 }
 
 uint8_t IMU_ReadReg(uint8_t reg){
   IMU_CS_Low();
-  IMU_SPI1_Transfer(reg | 0x80);
+  IMU_SPI1_Transfer(reg | 0x80); // Read specified register in read mode
   uint8_t val = IMU_SPI1_Transfer(0x00);
   IMU_CS_High();
   return val;
 }
-// void IMU_ReadRegs(uint8_t reg, uint8_t *buf, uint8_t len);
 
 void IMU_ReadAccelRAW(int16_t *ax, int16_t *ay, int16_t *az){
 
@@ -112,6 +83,7 @@ void IMU_ReadAccelRAW(int16_t *ax, int16_t *ay, int16_t *az){
   *ay = (int16_t)((buf[3] << 8) | buf[2]);
   *az = (int16_t)((buf[5] << 8) | buf[4]);
 }
+
 void IMU_ReadGyroRAW(int16_t *gx, int16_t *gy, int16_t *gz){
 
   uint8_t buf[6];
@@ -145,12 +117,22 @@ void IMU_ReadGyro(float *gx, float *gy, float *gz)
   *gz = (float)raw_gz / 65.5f;
 }
 
-// int16_t IMU_ReadTemperature(void);
+void IMU_ReadTemperature(float *tmp){
+  uint8_t buf[2];
+  IMU_CS_Low();
+  IMU_SPI1_Transfer(0x0C | 0x80);
+  for (int i=0; i < 2; i++){
+    buf[i] = IMU_SPI1_Transfer(0x00);
+  }
+  IMU_CS_High();
+  float temp_raw = (float)(((uint16_t)buf[1] << 8) | buf[0]);
+  *tmp = (float)((temp_raw / 128) + 25);
+}
 
 void IMU_CS_High(void){
-  GPIOA->BSRR |= GPIO_BSRR_BS4;
+  GPIOA->BSRR = GPIO_BSRR_BS4; // Set CS Pin
 }
 
 void IMU_CS_Low(void){
-  GPIOA->BSRR |= GPIO_BSRR_BR4;
+  GPIOA->BSRR = GPIO_BSRR_BR4; // Reset CS Pin
 }

@@ -52,6 +52,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/Drivers/PWM.c
     Core/Src/Drivers/IMU.c
     Core/Src/Drivers/GPIO.c
+    Core/Src/Drivers/BMP.c
+    Core/Src/Drivers/Comms.c
 )
 
 # Add include paths

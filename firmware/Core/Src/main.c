@@ -26,6 +26,7 @@
 #include "PWM.h"
 #include "GPIO.h"
 #include "IMU.h"
+#include "BMP.h"
 #include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
@@ -121,27 +122,40 @@ int main(void)
   PWM_Init();
   GPIO_Init();
   IMU_Init();
+  BMP_Init();
   /* USER CODE END 2 */
 
-  char msg[128];
-  float ax, ay, az;
-  float gx, gy, gz;
+  char msg[64];
+  // Force BMP580 into SPI mode
+  // BMP_CS_Low();
+
+  // BMP_SPI2_Transfer(0x00);
+  // BMP_SPI2_Transfer(0x00);
+  // BMP_SPI2_Transfer(0x00);
+
+  // BMP_CS_High();
+
+  HAL_Delay(2);
+
+  // CHIP_ID
+  BMP_CS_Low();
+  BMP_SPI2_Transfer(0x81);
+  uint8_t id = BMP_SPI2_Transfer(0x00);
+  BMP_CS_High();
+
+  // REV_ID
+  BMP_CS_Low();
+  BMP_SPI2_Transfer(0x82);
+  uint8_t rev = BMP_SPI2_Transfer(0x00);
+  BMP_CS_High();
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
-
-    IMU_ReadAccel(&ax, &ay, &az);
-    IMU_ReadGyro(&gx, &gy, &gz);
-
-    sprintf(msg,
-        "AX=%.04fg AY=%.04fg AZ=%.04fg\t GX=%.04fdeg/s GY=%.04fdeg/s GZ=%.04fdeg/s\r\n",
-        ax, ay, az, gx, gy, gz);
-
-    CDC_Transmit_FS((uint8_t *)msg, strlen(msg));
-
-    HAL_Delay(500);
+    sprintf(msg, "BMP580 CHIP_ID = 0x%02X\t REV_ID=0x%02X\r\n", id, rev); 
+    CDC_Transmit_FS((uint8_t *)msg, strlen(msg)); 
+    HAL_Delay(200);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
