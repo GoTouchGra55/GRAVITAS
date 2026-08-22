@@ -127,6 +127,7 @@ int main(void)
 
   char msg[128];
   float pressure, height, gnd_pressure;
+  float ax, ay, az, gx, gy, gz, temp;
   gnd_pressure = BMP_ReadPressureRaw();
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -135,9 +136,21 @@ int main(void)
     /* USER CODE END WHILE */
     pressure = BMP_ReadPressureRaw();
     height = BMP_ReadHeight(gnd_pressure);
-    sprintf(msg, "Pressure = %.2fPa\t Height = %.2fm\r\n", pressure, height); 
-    CDC_Transmit_FS((uint8_t *)msg, strlen(msg)); 
-    HAL_Delay(200);
+    IMU_ReadAccel(&ax, &ay, &az);
+    IMU_ReadGyro(&gx, &gy, &gz);
+    IMU_ReadTemperature(&temp);
+    GYRO_DATA gyro = {gx, gy, gz};
+    ACC_DATA accl = {ax, ay, az};
+    // sprintf(msg,
+    //     "ACC: X=%.2fg Y=%.2fg Z=%.2fg | "
+    //     "GYR: X=%.2f °/s Y=%.2f °/s Z=%.2f °/s | "
+    //     "TEMP: %.2f C | PRESS: %.2f Pa | ALT: %.2f m\r\n",
+    //     ax, ay, az,
+    //     gx, gy, gz,
+    //     temp, pressure, height);
+    // CDC_Transmit_FS((uint8_t *)msg, strlen(msg)); 
+    PWM_FakePID(TIM1, &gyro, &accl);
+    HAL_Delay(100);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

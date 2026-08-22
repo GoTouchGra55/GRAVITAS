@@ -117,7 +117,17 @@ void Error_Handler(void);
 #define SD_CD_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
+typedef struct{
+  float gyro_x;
+  float gyro_y;
+  float gyro_z;
+} GYRO_DATA;
 
+typedef struct{
+  float accel_x;
+  float accel_y;
+  float accel_z;
+} ACC_DATA;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

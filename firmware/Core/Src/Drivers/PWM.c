@@ -1,4 +1,5 @@
 #include "PWM.h"
+#include "math.h"
 #include "stm32h7xx.h"
 
 void Init_Channel(TIM_TypeDef *timer, uint8_t channel);
@@ -50,9 +51,7 @@ void Init_Channel(TIM_TypeDef *timer, uint8_t channel){
     timer->CCER |= CCER_CCxE; // Enable TIMx Channel x
 }
 
-void PWM_SetPos(TIM_TypeDef *timer, uint8_t channel, uint8_t angle)
-{
-    
+void PWM_SetPos(TIM_TypeDef *timer, uint8_t channel, uint8_t angle){
     if (channel < 1 || channel > 4)
         return;
     if (angle > 180) 
@@ -68,4 +67,24 @@ void PWM_SetPos(TIM_TypeDef *timer, uint8_t channel, uint8_t angle)
         timer->CCR3 = pulse;
     else if (channel == 4)
         timer->CCR4 = pulse;
+}
+
+void PWM_FakePID(TIM_TypeDef *timer, GYRO_DATA *gyro_data, ACC_DATA *acc_data)
+{
+    const float KP = 2.0f;
+    const float KD = 0.5f;
+
+    float roll  = atan2f(acc_data->accel_y, acc_data->accel_z) * 57.29578f;
+    float pitch = atan2f(acc_data->accel_x, acc_data->accel_z) * 57.29578f;
+
+    float roll_output =
+        KP * roll +
+        KD * gyro_data->gyro_x;
+
+    float pitch_output =
+        KP * pitch +
+        KD * gyro_data->gyro_y;
+
+    PWM_SetPos(timer, 1, (uint8_t)(180.0f + roll_output));
+    PWM_SetPos(timer, 2, (uint8_t)(90.0f + pitch_output));
 }
