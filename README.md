@@ -98,6 +98,7 @@ The STM32 should now boot directly from its internal flash and execute the newly
 # Bill Of Materials
 
 ### See [BOM](Gravitas-bom.csv)
+### See [Gerber File](production/GRAVITAS.zip)
 
 # License
 
